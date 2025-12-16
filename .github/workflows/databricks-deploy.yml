@@ -82,9 +82,7 @@ jobs:
       (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'dev')
     
-    environment:
-      name: development
-      url: ${{ secrets.DATABRICKS_HOST }}
+    environment: development
     
     steps:
       - name: Checkout code
@@ -116,9 +114,7 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'staging')
     
-    environment:
-      name: staging
-      url: ${{ secrets.DATABRICKS_HOST }}
+    environment: staging
     
     steps:
       - name: Checkout code
@@ -143,9 +139,7 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'prod')
     
-    environment:
-      name: production
-      url: ${{ secrets.DATABRICKS_HOST }}
+    environment: production
     
     steps:
       - name: Checkout code
