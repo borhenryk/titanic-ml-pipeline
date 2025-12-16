@@ -1,180 +1,110 @@
 # Titanic ML Pipeline
 
-An end-to-end machine learning pipeline for predicting Titanic passenger survival, built with Databricks Asset Bundles (DABs) and deployed via CI/CD with GitHub Actions.
-
-## 📋 Project Overview
-
-This project demonstrates a production-ready ML pipeline that includes:
-
-- **Data Preparation**: Load and clean the Titanic dataset
-- **Feature Engineering**: Create predictive features
-- **Model Training**: Train with hyperparameter optimization using Optuna
-- **Model Validation**: Validate model performance against thresholds
-- **Model Deployment**: Deploy to Databricks Model Serving
-- **CI/CD**: Automated deployment via GitHub Actions
-
-## 🏗️ Project Structure
-
-```
-titanic_ml_project/
-├── databricks.yml                    # Bundle configuration
-├── resources/
-│   └── titanic_pipeline_job.yml     # Job definitions
-├── src/titanic_ml/notebooks/
-│   ├── 01_data_preparation.py       # Data loading and cleaning
-│   ├── 02_feature_engineering.py    # Feature creation
-│   ├── 03_model_training.py         # Model training with HPO
-│   ├── 04_model_validation.py       # Model validation
-│   └── 05_model_deployment.py       # Model deployment
-├── reports/
-│   └── eda_report.md                # EDA analysis report
-├── .github/workflows/
-│   └── databricks-deploy.yml        # CI/CD pipeline
-└── README.md
-```
+End-to-end Machine Learning pipeline for Titanic survival prediction using Databricks Asset Bundles (DABs) with automated CI/CD deployment via GitHub Actions.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+- Databricks workspace with Unity Catalog enabled
+- Databricks CLI configured
+- GitHub account with repository secrets configured
 
-1. **Databricks CLI** installed and configured
-2. **GitHub account** with repository access
-3. **Databricks workspace** with Unity Catalog enabled
-
-### Local Development
-
-1. Clone the repository:
+### Deploy to Development
 ```bash
-git clone https://github.com/borhenryk/titanic-ml-pipeline.git
-cd titanic-ml-pipeline/titanic_ml_project
-```
-
-2. Configure Databricks CLI:
-```bash
-databricks auth login --host https://your-workspace.cloud.databricks.com
-```
-
-3. Validate the bundle:
-```bash
+cd titanic_ml_project
 databricks bundle validate -t dev
-```
-
-4. Deploy to development:
-```bash
 databricks bundle deploy -t dev
 ```
 
-5. Run the pipeline:
+### Run the Pipeline
 ```bash
 databricks bundle run titanic_ml_pipeline -t dev
 ```
 
-## ⚙️ Configuration
+## 📁 Project Structure
+
+```
+titanic_ml_project/
+├── databricks.yml              # Bundle configuration
+├── resources/
+│   └── titanic_pipeline_job.yml  # Job definition
+├── src/titanic_ml/notebooks/
+│   ├── 01_data_preparation.py    # Load & prepare data
+│   ├── 02_feature_engineering.py # Feature creation
+│   ├── 03_model_training.py      # Train with HPO
+│   ├── 04_model_validation.py    # Validate model
+│   └── 05_model_deployment.py    # Deploy endpoint
+├── reports/
+│   └── eda_report.md             # EDA findings
+└── .github/workflows/
+    └── databricks-deploy.yml     # CI/CD pipeline
+```
+
+## 🔧 Configuration
 
 ### Bundle Variables
-
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `catalog` | Unity Catalog name | `dbdemos_henryk` |
-| `schema` | Schema name | `titanic_ml` |
-| `experiment_name` | MLflow experiment path | `/Users/.../titanic_ml_experiment` |
+| `schema` | Schema for ML artifacts | `titanic_ml` |
+| `experiment_name` | MLflow experiment path | `/Shared/titanic_ml_experiment` |
 
 ### Deployment Targets
-
-| Target | Description | Workspace |
-|--------|-------------|------------|
-| `dev` | Development | User workspace |
-| `staging` | Pre-production | Shared workspace |
-| `prod` | Production | Production workspace |
+- **dev**: Development environment (default)
+- **staging**: Pre-production testing
+- **prod**: Production deployment
 
 ## 🔄 CI/CD Pipeline
 
-### GitHub Secrets Required
+The GitHub Actions workflow automatically:
 
-Add these secrets to your GitHub repository:
+1. **On Push to `main`/`develop`**: Validates and deploys to dev
+2. **On Push to `main`**: Promotes through staging → prod
+3. **On Pull Request**: Validates bundle configuration
+4. **Manual Trigger**: Deploy to any environment
 
-| Secret | Description |
-|--------|-------------|
-| `DATABRICKS_HOST` | Databricks workspace URL (e.g., `https://dbc-xxxxx.cloud.databricks.com`) |
-| `DATABRICKS_TOKEN` | Databricks Personal Access Token |
+### Required Secrets
+- `DATABRICKS_HOST`: Workspace URL
+- `DATABRICKS_TOKEN`: Personal Access Token
 
-### Workflow Triggers
+## 📊 Pipeline Stages
 
-- **Push to `develop`**: Deploy to dev
-- **Push to `main`**: Deploy to dev → staging → prod (with approval)
-- **Pull Request**: Validate bundle only
-- **Manual**: Select target and optionally run job
+| Stage | Description | Output |
+|-------|-------------|--------|
+| Data Preparation | Load Titanic dataset, quality checks | `titanic_raw` table |
+| Feature Engineering | Create ML features | `titanic_features` table |
+| Model Training | Hyperparameter optimization with Optuna | Registered model |
+| Model Validation | Performance validation against thresholds | Validation report |
+| Model Deployment | Deploy to serving endpoint | REST API endpoint |
 
-## 📊 Model Performance
+## 🎯 Model Performance
 
-The trained Gradient Boosting model achieves:
+Target metrics for deployment approval:
+- Accuracy: ≥ 75%
+- Precision: ≥ 70%
+- Recall: ≥ 50%
+- F1 Score: ≥ 60%
+- ROC AUC: ≥ 75%
 
-| Metric | Value |
-|--------|-------|
-| Accuracy | ~79% |
-| Precision | ~80% |
-| Recall | ~62% |
-| F1 Score | ~70% |
-| ROC AUC | ~84% |
+## 📈 MLflow Tracking
 
-### Key Features
-
-1. `sex_encoded` - Gender (most predictive)
-2. `pclass` - Passenger class
-3. `age_imputed` - Age with imputation
-4. `fare` - Ticket fare
-5. `family_size` - Family size (engineered)
+All experiments are logged to MLflow with:
+- Hyperparameters
+- Performance metrics
+- Model artifacts
+- Feature importance plots
+- Confusion matrices
 
 ## 🔗 Resources
 
-### Databricks Resources Created
-
-- **Unity Catalog**:
-  - Catalog: `dbdemos_henryk`
-  - Schema: `titanic_ml`
-  - Tables: `titanic_raw`, `titanic_features`
-
-- **MLflow**:
-  - Experiment: `titanic_ml_experiment`
-  - Model: `titanic_survival_model`
-
-- **Model Serving**:
-  - Endpoint: `titanic-survival-endpoint`
-
-### API Endpoint
-
-```bash
-# Test the serving endpoint
-curl -X POST \
-  https://your-workspace.cloud.databricks.com/serving-endpoints/titanic-survival-endpoint/invocations \
-  -H "Authorization: Bearer $DATABRICKS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "dataframe_records": [{
-      "pclass": 1,
-      "sex_encoded": 0,
-      "age_imputed": 35.0,
-      "sibsp": 1,
-      "parch": 0,
-      "fare": 53.1,
-      "embarked_encoded": 0,
-      "family_size": 2,
-      "is_alone": 0,
-      "fare_per_person": 26.55
-    }]
-  }'
-```
-
-## 📖 Documentation
-
-- [Databricks Asset Bundles](https://docs.databricks.com/dev-tools/bundles/index.html)
+- [Databricks Asset Bundles Documentation](https://docs.databricks.com/dev-tools/bundles/index.html)
 - [MLflow on Databricks](https://docs.databricks.com/mlflow/index.html)
-- [Model Serving](https://docs.databricks.com/machine-learning/model-serving/index.html)
+- [Unity Catalog](https://docs.databricks.com/data-governance/unity-catalog/index.html)
 
 ## 📝 License
 
 This project is for demonstration purposes.
 
-## 👥 Contributors
+---
 
-- Henryk Borzymowski
+*Last updated: December 16, 2025 - CI/CD pipeline ready* ✅
