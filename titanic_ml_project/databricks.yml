@@ -1,0 +1,52 @@
+# Databricks Asset Bundle Configuration for Titanic ML Pipeline
+# This bundle orchestrates the complete ML lifecycle from data prep to model deployment
+
+bundle:
+  name: titanic_ml_pipeline
+
+variables:
+  catalog:
+    description: "Unity Catalog name"
+    default: "dbdemos_henryk"
+  schema:
+    description: "Schema name for Titanic ML project"
+    default: "titanic_ml"
+  experiment_name:
+    description: "MLflow experiment name"
+    default: "/Shared/titanic_ml_experiment"
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-cc0aa83c-12fd.cloud.databricks.com
+    variables:
+      catalog: dbdemos_henryk
+      schema: titanic_ml
+      experiment_name: "/Users/${workspace.current_user.userName}/titanic_ml_experiment"
+
+  staging:
+    mode: development
+    workspace:
+      host: https://dbc-cc0aa83c-12fd.cloud.databricks.com
+    variables:
+      catalog: dbdemos_henryk
+      schema: titanic_ml_staging
+      experiment_name: "/Shared/titanic_ml_staging"
+
+  prod:
+    mode: production
+    workspace:
+      host: https://dbc-cc0aa83c-12fd.cloud.databricks.com
+    variables:
+      catalog: dbdemos_henryk
+      schema: titanic_ml_prod
+      experiment_name: "/Shared/titanic_ml_production"
+    run_as:
+      # In production, run as a service principal
+      # service_principal_name: "titanic-ml-service-principal"
+      user_name: ${workspace.current_user.userName}

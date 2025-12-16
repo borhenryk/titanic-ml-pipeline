@@ -1,0 +1,92 @@
+# Titanic ML Pipeline Job Definition
+# This job orchestrates the complete ML pipeline from data preparation to model deployment
+
+resources:
+  jobs:
+    titanic_ml_pipeline:
+      name: "Titanic ML Pipeline - ${bundle.target}"
+      description: "End-to-end ML pipeline for Titanic survival prediction"
+      
+      # Schedule to run daily at 6 AM UTC
+      schedule:
+        quartz_cron_expression: "0 0 6 * * ?"
+        timezone_id: "UTC"
+        pause_status: PAUSED  # Start paused, enable in production
+      
+      # Email notifications
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
+      
+      # Pipeline tasks
+      tasks:
+        - task_key: data_preparation
+          description: "Load and prepare Titanic dataset"
+          notebook_task:
+            notebook_path: ../src/titanic_ml/notebooks/01_data_preparation.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+          job_cluster_key: ml_cluster
+          
+        - task_key: feature_engineering
+          description: "Create and store features"
+          depends_on:
+            - task_key: data_preparation
+          notebook_task:
+            notebook_path: ../src/titanic_ml/notebooks/02_feature_engineering.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+          job_cluster_key: ml_cluster
+          
+        - task_key: model_training
+          description: "Train model with hyperparameter optimization"
+          depends_on:
+            - task_key: feature_engineering
+          notebook_task:
+            notebook_path: ../src/titanic_ml/notebooks/03_model_training.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              experiment_name: ${var.experiment_name}
+          job_cluster_key: ml_cluster
+          
+        - task_key: model_validation
+          description: "Validate model performance"
+          depends_on:
+            - task_key: model_training
+          notebook_task:
+            notebook_path: ../src/titanic_ml/notebooks/04_model_validation.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              experiment_name: ${var.experiment_name}
+          job_cluster_key: ml_cluster
+          
+        - task_key: model_deployment
+          description: "Deploy model to serving endpoint"
+          depends_on:
+            - task_key: model_validation
+          notebook_task:
+            notebook_path: ../src/titanic_ml/notebooks/05_model_deployment.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              endpoint_name: "titanic-survival-endpoint"
+          job_cluster_key: ml_cluster
+      
+      # Cluster configuration
+      job_clusters:
+        - job_cluster_key: ml_cluster
+          new_cluster:
+            spark_version: "14.3.x-cpu-ml-scala2.12"
+            node_type_id: "i3.xlarge"
+            num_workers: 0  # Single node for cost efficiency
+            spark_conf:
+              spark.databricks.cluster.profile: singleNode
+              spark.master: "local[*, 4]"
+            custom_tags:
+              project: "titanic_ml"
+              environment: "${bundle.target}"
+            autotermination_minutes: 30

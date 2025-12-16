@@ -1,0 +1,187 @@
+# Databricks Asset Bundles CI/CD Pipeline
+# This workflow validates and deploys the Titanic ML pipeline to Databricks
+
+name: Databricks CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'titanic_ml_project/**'
+      - '.github/workflows/databricks-deploy.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'titanic_ml_project/**'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Deployment target'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      run_job:
+        description: 'Run the job after deployment'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  # Databricks workspace URL for deployment
+  DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+  
+  # Working directory for the bundle
+  BUNDLE_PATH: titanic_ml_project
+
+jobs:
+  # Job 1: Validate the bundle
+  validate:
+    name: Validate Bundle
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+      
+      - name: Validate Bundle (Dev)
+        working-directory: ${{ env.BUNDLE_PATH }}
+        run: |
+          echo "Validating bundle for dev target..."
+          databricks bundle validate -t dev
+      
+      - name: Validate Bundle (Staging)
+        working-directory: ${{ env.BUNDLE_PATH }}
+        run: |
+          echo "Validating bundle for staging target..."
+          databricks bundle validate -t staging
+      
+      - name: Validate Bundle (Prod)
+        working-directory: ${{ env.BUNDLE_PATH }}
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Validating bundle for prod target..."
+          databricks bundle validate -t prod
+
+  # Job 2: Deploy to Dev (on push to develop or main)
+  deploy-dev:
+    name: Deploy to Dev
+    runs-on: ubuntu-latest
+    needs: validate
+    if: |
+      (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'dev')
+    
+    environment:
+      name: development
+      url: ${{ secrets.DATABRICKS_HOST }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+      
+      - name: Deploy to Dev
+        working-directory: ${{ env.BUNDLE_PATH }}
+        run: |
+          echo "Deploying bundle to dev environment..."
+          databricks bundle deploy -t dev
+          echo "✅ Deployment to dev completed!"
+      
+      - name: Run Job (Optional)
+        if: github.event.inputs.run_job == 'true'
+        working-directory: ${{ env.BUNDLE_PATH }}
+        run: |
+          echo "Running the ML pipeline job..."
+          databricks bundle run titanic_ml_pipeline -t dev
+
+  # Job 3: Deploy to Staging (on push to main)
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: deploy-dev
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'staging')
+    
+    environment:
+      name: staging
+      url: ${{ secrets.DATABRICKS_HOST }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+      
+      - name: Deploy to Staging
+        working-directory: ${{ env.BUNDLE_PATH }}
+        run: |
+          echo "Deploying bundle to staging environment..."
+          databricks bundle deploy -t staging
+          echo "✅ Deployment to staging completed!"
+
+  # Job 4: Deploy to Production (manual approval required)
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'prod')
+    
+    environment:
+      name: production
+      url: ${{ secrets.DATABRICKS_HOST }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+      
+      - name: Deploy to Production
+        working-directory: ${{ env.BUNDLE_PATH }}
+        run: |
+          echo "Deploying bundle to production environment..."
+          databricks bundle deploy -t prod
+          echo "✅ Deployment to production completed!"
+
+  # Job 5: PR Validation (for pull requests)
+  pr-check:
+    name: PR Validation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+      
+      - name: Validate Bundle
+        working-directory: ${{ env.BUNDLE_PATH }}
+        run: |
+          echo "Validating bundle for PR..."
+          databricks bundle validate -t dev
+      
+      - name: Show Bundle Summary
+        working-directory: ${{ env.BUNDLE_PATH }}
+        run: |
+          echo "Bundle Summary:"
+          databricks bundle summary -t dev
