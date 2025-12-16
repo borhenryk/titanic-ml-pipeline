@@ -1,5 +1,6 @@
 # Titanic ML Pipeline Job Definition
 # This job orchestrates the complete ML pipeline from data preparation to model deployment
+# Uses serverless compute for all tasks
 
 resources:
   jobs:
@@ -18,7 +19,12 @@ resources:
         on_failure:
           - ${workspace.current_user.userName}
       
-      # Pipeline tasks
+      # Tags for organization
+      tags:
+        project: "titanic_ml"
+        environment: "${bundle.target}"
+      
+      # Pipeline tasks - using serverless compute
       tasks:
         - task_key: data_preparation
           description: "Load and prepare Titanic dataset"
@@ -27,7 +33,6 @@ resources:
             base_parameters:
               catalog: ${var.catalog}
               schema: ${var.schema}
-          job_cluster_key: ml_cluster
           
         - task_key: feature_engineering
           description: "Create and store features"
@@ -38,7 +43,6 @@ resources:
             base_parameters:
               catalog: ${var.catalog}
               schema: ${var.schema}
-          job_cluster_key: ml_cluster
           
         - task_key: model_training
           description: "Train model with hyperparameter optimization"
@@ -50,7 +54,6 @@ resources:
               catalog: ${var.catalog}
               schema: ${var.schema}
               experiment_name: ${var.experiment_name}
-          job_cluster_key: ml_cluster
           
         - task_key: model_validation
           description: "Validate model performance"
@@ -62,7 +65,6 @@ resources:
               catalog: ${var.catalog}
               schema: ${var.schema}
               experiment_name: ${var.experiment_name}
-          job_cluster_key: ml_cluster
           
         - task_key: model_deployment
           description: "Deploy model to serving endpoint"
@@ -74,19 +76,3 @@ resources:
               catalog: ${var.catalog}
               schema: ${var.schema}
               endpoint_name: "titanic-survival-endpoint"
-          job_cluster_key: ml_cluster
-      
-      # Cluster configuration
-      job_clusters:
-        - job_cluster_key: ml_cluster
-          new_cluster:
-            spark_version: "14.3.x-cpu-ml-scala2.12"
-            node_type_id: "i3.xlarge"
-            num_workers: 0  # Single node for cost efficiency
-            spark_conf:
-              spark.databricks.cluster.profile: singleNode
-              spark.master: "local[*, 4]"
-            custom_tags:
-              project: "titanic_ml"
-              environment: "${bundle.target}"
-            autotermination_minutes: 30
